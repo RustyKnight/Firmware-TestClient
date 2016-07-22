@@ -9,6 +9,7 @@
 import Foundation
 import CocoaAsyncSocket
 import SwiftyJSON
+import CioffiAPI
 
 class ServerService: NSObject {
     

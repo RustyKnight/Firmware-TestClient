@@ -9,7 +9,7 @@
 import Foundation
 import SwiftyJSON
 
-enum ProtocolError: ErrorProtocol {
+public enum ProtocolError: ErrorProtocol {
     case jsonEncodingError
     case dataEncodingError
     case requestDecodingError
@@ -19,12 +19,12 @@ enum ProtocolError: ErrorProtocol {
 
 @objc public class ProtocolUtils: NSObject {
     
-    static let headerLength: UInt = 8
-    static let headValue = "\(Utils.hexStringtoAscii(hexString: "A5A5"))"
-    static let flagValue = "\(Utils.hexStringtoAscii(hexString: "0000"))"
-    static let defaultCRC = "\(Utils.hexStringtoAscii(hexString: "0000"))"
+    public static let headerLength: UInt = 8
+    public static let headValue = "\(Utils.hexStringtoAscii(hexString: "A5A5"))"
+    public static let flagValue = "\(Utils.hexStringtoAscii(hexString: "0000"))"
+    public static let defaultCRC = "\(Utils.hexStringtoAscii(hexString: "0000"))"
     
-    static var apiVersion: Int = 1
+    public static var apiVersion: Int = 1
     
     /**
      Gets the request header for a given request type
@@ -32,19 +32,19 @@ enum ProtocolError: ErrorProtocol {
      - requestType: Request Type
      - Returns: Request header
      */
-    static func getHeader(requestType: RequestType) -> [String: [String: AnyObject]] {
+    public static func getHeader(requestType: RequestType) -> [String: [String: AnyObject]] {
         return getHeader(type: requestType.rawValue)
     }
     
-    static func getHeader(notificationType: NotificationType) -> [String: [String: AnyObject]] {
+    public static func getHeader(notificationType: NotificationType) -> [String: [String: AnyObject]] {
         return getHeader(type: notificationType.rawValue)
     }
 
-    static func getHeader(responseType: ResponseType, code: ResponseCode) -> [String: [String: AnyObject]] {
+    public static func getHeader(responseType: ResponseType, code: ResponseCode) -> [String: [String: AnyObject]] {
         return getHeader(type: responseType.rawValue, result: code.rawValue)
     }
     
-    static func getHeader(responseType: ResponseType, result: Int) -> [String: [String: AnyObject]] {
+    public static func getHeader(responseType: ResponseType, result: Int) -> [String: [String: AnyObject]] {
         return getHeader(type: responseType.rawValue, result: result)
     }
     
@@ -54,7 +54,7 @@ enum ProtocolError: ErrorProtocol {
      - requestType: Request Type
      - Returns: Request header
      */
-    static func getHeader(type: Int, result: Int? = nil) -> [String: [String: AnyObject]] {
+    public static func getHeader(type: Int, result: Int? = nil) -> [String: [String: AnyObject]] {
         var header: [String: [String: AnyObject]] = ["header": ["version": apiVersion, "type" : type]]
         if let result = result {
             header["header"]?["result"] = result
@@ -80,7 +80,6 @@ enum ProtocolError: ErrorProtocol {
         
         if let crc = crcHeader.data(using: String.Encoding.isoLatin1, allowLossyConversion: false)?.crcCCITT {
             // Calculate CRC
-            log(info: "CRC Value \(crc)")
             let hexCrc = Utils.hexStringFromInt(value: Int(crc))
             let hexStr = Utils.hexStringtoAscii(hexString: hexCrc)
             protocolMessage = getProtocolMessage(size: sizeValue, crc: hexStr, messageBody: messageBody)
@@ -104,81 +103,46 @@ enum ProtocolError: ErrorProtocol {
         return "\(headValue)\(size)\(flagValue)\(crc)\(messageBody)"
     }
     
-    class func dataFor(notification: NotificationType, payload: [String: [String: AnyObject]]) throws -> Data {
+    public class func dataFor(notification: NotificationType, payload: [String: [String: AnyObject]]) throws -> Data {
         var header = ProtocolUtils.getHeader(notificationType: notification)
         header += payload
         return try dataFor(payload: header)
     }
     
-    class func dataFor(request: RequestType, payload: [String: [String: AnyObject]]? = nil) throws -> Data {
-        var header = ProtocolUtils.getHeader(requestType: request)
-        if let payload = payload {
-            header += payload
-        }
-        return try dataFor(payload: header)
-    }
-    
-    class func dataFor(payload: [String: [String: AnyObject]]) throws -> Data {
+    public class func dataFor(payload: [String: [String: AnyObject]]) throws -> Data {
         return try dataFor(json: JSON(payload))
     }
     
-    class func dataFor(json: JSON) throws -> Data {
-        log(info: "json = \(json)")
+    public class func dataFor(json: JSON) throws -> Data {
         guard let jsonString = json.rawString(String.Encoding.isoLatin1, options: []) else {
             throw ProtocolError.jsonEncodingError
         }
-        log(info: "jsonString = \(jsonString)")
+        
         return try dataFor(string: jsonString)
     }
     
-    class func dataFor(string: String) throws -> Data {
+    public class func dataFor(string: String) throws -> Data {
         let encoded = getProtocolMessage(messageBody: string)
         guard let data = encoded.data(using: String.Encoding.isoLatin1, allowLossyConversion: false) else {
             throw ProtocolError.dataEncodingError
         }
         return data
-    }
+    } 
     
-    class func getBodyLength(from data: Data) -> UInt {
-//        log(info: "\(String(data: data, encoding: String.Encoding.isoLatin1))")
-//        
-//        let count = data.count / sizeof(Int8.self)
-//        var array = [UInt8](repeating: 0, count: count)
-//        data.copyBytes(to: &array, count: count * sizeof(UInt32.self))
-//        
-//        log(info: "\(array)")
-        
+    public class func getBodyLength(from data: Data) -> UInt {
         let buffer = UnsafeMutableBufferPointer<UInt8>(
             start: UnsafeMutablePointer<UInt8>(allocatingCapacity: data.count),
             count: data.count)
-        let count = data.copyBytes(to: buffer)
+        let _ = data.copyBytes(to: buffer)
         let headerBytes = Array(buffer)
         return getBodyLength(from: headerBytes)
     }
     
-    class func getBodyLength(from headerBytes: [UInt8]) -> UInt {
+    public class func getBodyLength(from headerBytes: [UInt8]) -> UInt {
         return (UInt(headerBytes[2]) * 256) + UInt(headerBytes[3])
     }
-    
-    class func processRequest(header: Data, body: Data) throws {
-        guard validCRC(fromHeader: header, body: body) else {
-            throw ProtocolError.invalidCRC
-        }
-        guard let _ = String(data: body, encoding: String.Encoding.isoLatin1) else {
-            throw ProtocolError.requestDecodingError
-        }
-        
-        let json = JSON(data: body)
-        guard let typeCode = json["header"]["type"].int else {
-            throw ProtocolError.missingRequestType
-        }
-        
-        let requestType = RequestType.for(typeCode)
-        
-        log(info: "\(json.rawString())")
-    }
-    
-    class func validCRC(fromHeader headerData: Data, body bodyData: Data) -> Bool {
+
+    public class func validCRC(fromHeader headerData: Data, body bodyData: Data) -> Bool {
         
         // Compute CRC
         var bytes = Array(UnsafeBufferPointer(
@@ -199,12 +163,12 @@ enum ProtocolError: ErrorProtocol {
         return currentCrc == expectedCrc
     }
     
-    class func getExpectedCRC(from bytes: [UInt8]) -> UInt {
+    public class func getExpectedCRC(from bytes: [UInt8]) -> UInt {
         return (UInt(bytes[6]) * 256) + UInt(bytes[7])
     }
 }
 
-struct Utils {
+public struct Utils {
     
     /**
      Returns a hex string for a given Int
@@ -212,7 +176,7 @@ struct Utils {
      - value: Int value
      - Returns: Hex representation of the Int value
      */
-    static func hexStringFromInt(value: Int) -> String {
+    public static func hexStringFromInt(value: Int) -> String {
         return String(format: "%04x", value).uppercased()
     }
     
@@ -223,7 +187,7 @@ struct Utils {
      - pattern: Pattern to match (Default (0x)?([0-9a-f]{2}) )
      - Returns: Ascii value of hex
      */
-    static func hexStringtoAscii(hexString: String,
+    public static func hexStringtoAscii(hexString: String,
                                  pattern: String = "(0x)?([0-9a-f]{2})") -> String {
         guard let regex = try? RegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return ""
@@ -239,9 +203,9 @@ struct Utils {
     }
 }
 
-let SEED: UInt16 = 0x0000
+public let SEED: UInt16 = 0x0000
 
-let crcCCITTLookupTable: [UInt16] = [
+public let crcCCITTLookupTable: [UInt16] = [
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7, 0x8108,
     0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF, 0x1231, 0x0210,
     0x3273, 0x2252, 0x52B5, 0x4294, 0x72F7, 0x62D6, 0x9339, 0x8318, 0xB37B,
@@ -273,7 +237,7 @@ let crcCCITTLookupTable: [UInt16] = [
     0x2E93, 0x3EB2, 0x0ED1, 0x1EF0,
 ]
 
-func calculateCRCCCITT(seed: UInt16, data: NSData) -> UInt16 {
+public func calculateCRCCCITT(seed: UInt16, data: NSData) -> UInt16 {
     let bytePointer = UnsafePointer<UInt8>(data.bytes)
     let bytes = UnsafeBufferPointer<UInt8>(start: bytePointer, count: data.length)
     var sum = seed
@@ -286,7 +250,7 @@ func calculateCRCCCITT(seed: UInt16, data: NSData) -> UInt16 {
     return sum
 }
 
-extension Data {
+public extension Data {
     var crcCCITT: UInt16 {
         return calculateCRCCCITT(seed: SEED, data: self)
     }
