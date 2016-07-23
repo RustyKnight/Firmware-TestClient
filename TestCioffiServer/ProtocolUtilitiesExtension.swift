@@ -13,7 +13,7 @@ import SwiftyJSON
 extension ProtocolUtils {
 	
 	class func dataFor(request: RequestType, payload: [String: [String: AnyObject]]? = nil) throws -> Data {
-		var message = getHeader(requestType: request)
+		var message = header(forRequest: request)
 		if let payload = payload {
 			message += payload
 		}
