@@ -35,6 +35,13 @@ public enum ResponseType: Int {
 		}
 		return response
 	}
+    
+    public static func from(_ json: JSON) -> ResponseType {
+        guard let value = json["header"]["type"].int else {
+            return ResponseType.unknown
+        }
+        return ResponseType.for(value)
+    }
 }
 
 public enum ResponseCode: Int {
